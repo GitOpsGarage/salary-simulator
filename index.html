@@ -115,7 +115,7 @@ tbody td:last-child { text-align: right; color: #e2e8f0; }
     <div class="box-hdr">Descontos BPS + IRPF · sem dependentes</div>
     <div class="tx-row"><span class="tx-lbl">Salário bruto</span><span class="tx-val" id="tu-gross">—</span></div>
     <div class="tx-row"><span class="tx-lbl">BPS Jubilatorio (15%)</span><span class="tx-val" style="color:#fc8181" id="tu-jub">—</span></div>
-    <div class="tx-row"><span class="tx-lbl">FONASA (3%)</span><span class="tx-val" style="color:#fc8181" id="tu-fonasa">—</span></div>
+    <div class="tx-row"><span class="tx-lbl" id="tu-fonasa-lbl">FONASA</span><span class="tx-val" style="color:#fc8181" id="tu-fonasa">—</span></div>
     <div class="tx-row"><span class="tx-lbl">FRL (0,1%)</span><span class="tx-val" style="color:#fc8181" id="tu-frl">—</span></div>
     <div class="tx-row"><span class="tx-lbl">IRPF</span><span class="tx-val" style="color:#fc8181" id="tu-irpf">—</span></div>
     <div class="tx-row tx-total"><span class="tx-lbl">💰 Líquido estimado</span><span class="tx-val" id="tu-net">—</span></div>
@@ -126,7 +126,7 @@ tbody td:last-child { text-align: right; color: #e2e8f0; }
     <table><thead><tr><th>Faixa (UYU/mês)</th><th>Taxa</th><th style="text-align:right">IR na faixa</th></tr></thead>
     <tbody id="uyu-rows"></tbody></table>
   </div>
-  <div class="hint"><strong>Premissas UY:</strong> Trabalhador dependente sem filhos, FONASA base 3%. BPC 2026 = $U 6.864 (DGI/BPS).</div>
+  <div class="hint"><strong>Premissas UY:</strong> Trabalhador dependente, solteiro sem filhos. FONASA 3% até 2,5 BPC ($U&nbsp;17.160) e 4,5% acima. BPC 2026 = $U&nbsp;6.864 (BPS).</div>
 </div>
 
 <!-- CHART -->
@@ -268,10 +268,12 @@ const IRPF_UY = [
 ];
 
 function calcUY(gross) {
-  const jub    = gross * 0.15;
-  const fonasa = gross * 0.03;
-  const frl    = gross * 0.001;
-  const bps    = jub + fonasa + frl;
+  const BPC        = 6864;
+  const fonasaRate = gross > 2.5 * BPC ? 0.045 : 0.03; // BPS: 3% até 2,5 BPC, 4,5% acima (solteiro sem filhos)
+  const jub        = gross * 0.15;
+  const fonasa     = gross * fonasaRate;
+  const frl        = gross * 0.001;
+  const bps        = jub + fonasa + frl;
   let taxIncome = 0;
   for (const b of IRPF_UY) {
     if (gross <= b.from) break;
@@ -279,14 +281,15 @@ function calcUY(gross) {
   }
   const creditRate = gross <= 102960 ? 0.14 : 0.08;
   const ir = Math.max(0, taxIncome - bps * creditRate);
-  return { jub, fonasa, frl, bps, ir, net: gross - bps - ir };
+  return { jub, fonasa, fonasaRate, frl, bps, ir, net: gross - bps - ir };
 }
 
 function renderUY(gross, rate) {
   const t = calcUY(gross);
-  document.getElementById("tu-gross").textContent  = "$U " + fmt(gross);
-  document.getElementById("tu-jub").textContent    = "- $U " + fmt(t.jub);
-  document.getElementById("tu-fonasa").textContent = "- $U " + fmt(t.fonasa);
+  document.getElementById("tu-gross").textContent     = "$U " + fmt(gross);
+  document.getElementById("tu-jub").textContent       = "- $U " + fmt(t.jub);
+  document.getElementById("tu-fonasa-lbl").textContent = `FONASA (${(t.fonasaRate*100).toFixed(1)}%)`;
+  document.getElementById("tu-fonasa").textContent    = "- $U " + fmt(t.fonasa);
   document.getElementById("tu-frl").textContent    = "- $U " + fmt(t.frl);
   document.getElementById("tu-irpf").textContent   = "- $U " + fmt(t.ir);
   document.getElementById("tu-net").textContent    = "$U " + fmt(t.net);

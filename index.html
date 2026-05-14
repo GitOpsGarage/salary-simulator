@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Simulador Salarial USD</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  background: #0d0f14; color: #e2e8f0;
+  min-height: 100vh; padding: 28px 20px 48px;
+  -webkit-font-smoothing: antialiased;
+}
+.eyebrow { font-size: 11px; color: #4fd1c5; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px; }
+h1 { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.subtitle { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 28px; }
+.controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 24px; }
+.ctrl-lbl { font-size: 10px; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+input[type=number] {
+  background: #1a1d26; border: 1px solid #2d3142; color: #e2e8f0;
+  border-radius: 6px; padding: 9px 13px; font-family: inherit;
+  font-size: 17px; width: 100%; outline: none;
+}
+input[type=number]:focus { border-color: #4fd1c5; }
+.toggle-group { display: flex; }
+.tbtn { padding: 9px 20px; font-family: inherit; font-size: 13px; font-weight: 600; border: 1px solid #2d3142; background: #1a1d26; color: #94a3b8; cursor: pointer; transition: background .15s, color .15s; }
+.tbtn:first-child { border-radius: 6px 0 0 6px; }
+.tbtn:last-child  { border-radius: 0 6px 6px 0; }
+.tbtn.on { background: #4fd1c5; color: #0d0f14; border-color: #4fd1c5; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.card { border-radius: 8px; padding: 13px 15px; }
+.card-lbl { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+.card-val { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+.card-sub { font-size: 11px; color: #64748b; }
+.box { background: #13161f; border: 1px solid #1e2435; border-radius: 8px; overflow: hidden; margin-bottom: 18px; }
+.box-hdr { padding: 12px 16px; border-bottom: 1px solid #1e2435; font-size: 10px; color: #64748b; letter-spacing: 2px; text-transform: uppercase; }
+.tx-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid #1a1d26; font-size: 13px; }
+.tx-row:last-child { border-bottom: none; }
+.tx-lbl { color: #94a3b8; }
+.tx-val { font-weight: 600; }
+.tx-total { background: rgba(79,209,197,0.06); }
+.tx-total .tx-lbl { color: #e2e8f0; font-weight: 600; }
+.tx-total .tx-val { color: #4fd1c5; font-size: 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { padding: 8px 16px; color: #64748b; font-weight: 500; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #1e2435; text-align: left; }
+tbody tr { border-bottom: 1px solid #1a1d26; }
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+tbody tr.hl td { color: #4fd1c5; background: rgba(79,209,197,0.05); }
+tbody td { padding: 9px 16px; color: #94a3b8; }
+tbody td:last-child { text-align: right; color: #e2e8f0; }
+.hint { background: rgba(79,209,197,0.04); border: 1px solid rgba(79,209,197,0.15); border-radius: 8px; padding: 14px; margin-bottom: 18px; font-size: 11px; color: #718096; line-height: 1.7; }
+.hint strong { color: #4fd1c5; }
+.risk-box { background: rgba(252,129,129,0.06); border: 1px solid rgba(252,129,129,0.2); border-radius: 8px; padding: 18px; margin-bottom: 18px; }
+.risk-ttl { font-size: 10px; color: #fc8181; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 9px; }
+.risk-txt { font-size: 13px; color: #cbd5e0; line-height: 1.7; margin-bottom: 9px; }
+.risk-hint { font-size: 11px; color: #718096; border-top: 1px solid rgba(252,129,129,0.15); padding-top: 9px; }
+.tag-est { font-size: 9px; color: #4a5568; background: #1e2435; padding: 1px 5px; border-radius: 3px; margin-left: 5px; }
+.legend { display: flex; gap: 14px; padding: 0 14px 12px; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #64748b; }
+.dot { width: 7px; height: 7px; border-radius: 50%; }
+.fn { font-size: 10px; color: #2d3748; text-align: center; padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="eyebrow">Proposta Salarial · Análise Cambial</div>
+<h1>USD → Moeda Local</h1>
+<p class="subtitle">Impacto cambial + impostos nos últimos 13 meses.</p>
+
+<div class="controls">
+  <div style="flex:1 1 160px">
+    <div class="ctrl-lbl">Salário em USD</div>
+    <input type="number" id="salary" value="1000" min="100" step="100">
+  </div>
+  <div>
+    <div class="ctrl-lbl">Moeda</div>
+    <div class="toggle-group">
+      <button class="tbtn on" id="btn-brl" onclick="setMode('BRL')">BRL</button>
+      <button class="tbtn"    id="btn-uyu" onclick="setMode('UYU')">UYU</button>
+    </div>
+  </div>
+</div>
+
+<div class="cards" id="cards"></div>
+
+<!-- TAX BRL -->
+
+<div id="tax-brl">
+  <div class="eyebrow" style="margin-bottom:10px">Estimativa de Impostos · Brasil 2026</div>
+  <div class="box">
+    <div class="box-hdr">Descontos CLT · sem dependentes · desconto simplificado</div>
+    <div class="tx-row"><span class="tx-lbl">Salário bruto</span><span class="tx-val" id="tb-gross">—</span></div>
+    <div class="tx-row"><span class="tx-lbl">INSS (progressivo, teto ~R$ 909)</span><span class="tx-val" style="color:#fc8181" id="tb-inss">—</span></div>
+    <div class="tx-row"><span class="tx-lbl">IRPF</span><span class="tx-val" style="color:#fc8181" id="tb-ir">—</span></div>
+    <div class="tx-row tx-total"><span class="tx-lbl">💰 Líquido estimado</span><span class="tx-val" id="tb-net">—</span></div>
+    <div class="tx-row"><span class="tx-lbl" style="font-size:11px">Equivalente em USD</span><span style="font-size:13px;color:#94a3b8;font-weight:500" id="tb-usd">—</span></div>
+  </div>
+  <div class="box">
+    <div class="box-hdr">Faixas IRPF 2026 aplicadas</div>
+    <table><thead><tr><th>Base de cálculo</th><th>Alíquota</th><th style="text-align:right">IR na faixa</th></tr></thead>
+    <tbody id="brl-rows"></tbody></table>
+  </div>
+  <div class="hint"><strong>Premissas BR:</strong> CLT, sem dependentes, desconto simplificado mensal R$ 607,20. Isenção ≤ R$ 5.000 e redutor gradual até R$ 7.350 (Lei 15.270/2025, vigente jan/2026). INSS teto ~R$ 908,86.</div>
+</div>
+
+<!-- TAX UYU -->
+
+<div id="tax-uyu" style="display:none">
+  <div class="eyebrow" style="margin-bottom:10px">Estimativa de Impostos · Uruguai 2026</div>
+  <div class="box">
+    <div class="box-hdr">Descontos BPS + IRPF · sem dependentes</div>
+    <div class="tx-row"><span class="tx-lbl">Salário bruto</span><span class="tx-val" id="tu-gross">—</span></div>
+    <div class="tx-row"><span class="tx-lbl">BPS Jubilatorio (15%)</span><span class="tx-val" style="color:#fc8181" id="tu-jub">—</span></div>
+    <div class="tx-row"><span class="tx-lbl">FONASA (3%)</span><span class="tx-val" style="color:#fc8181" id="tu-fonasa">—</span></div>
+    <div class="tx-row"><span class="tx-lbl">FRL (0,1%)</span><span class="tx-val" style="color:#fc8181" id="tu-frl">—</span></div>
+    <div class="tx-row"><span class="tx-lbl">IRPF</span><span class="tx-val" style="color:#fc8181" id="tu-irpf">—</span></div>
+    <div class="tx-row tx-total"><span class="tx-lbl">💰 Líquido estimado</span><span class="tx-val" id="tu-net">—</span></div>
+    <div class="tx-row"><span class="tx-lbl" style="font-size:11px">Equivalente em USD</span><span style="font-size:13px;color:#94a3b8;font-weight:500" id="tu-usd">—</span></div>
+  </div>
+  <div class="box">
+    <div class="box-hdr">Faixas IRPF 2026 aplicadas</div>
+    <table><thead><tr><th>Faixa (UYU/mês)</th><th>Taxa</th><th style="text-align:right">IR na faixa</th></tr></thead>
+    <tbody id="uyu-rows"></tbody></table>
+  </div>
+  <div class="hint"><strong>Premissas UY:</strong> Trabalhador dependente sem filhos, FONASA base 3%. BPC 2026 = $U 6.864 (DGI/BPS).</div>
+</div>
+
+<!-- CHART -->
+
+<div class="box">
+  <div class="box-hdr" id="chart-hdr">—</div>
+  <div style="padding:8px 4px 0"><svg id="chart" width="100%" style="display:block"></svg></div>
+  <div class="legend">
+    <div class="leg-item"><div class="dot" style="background:#4fd1c5"></div>Confirmado (x-rates)</div>
+    <div class="leg-item"><div class="dot" style="background:#94a3b8"></div>Estimado</div>
+  </div>
+</div>
+
+<!-- RISK -->
+
+<div class="risk-box">
+  <div class="risk-ttl">⚠ Risco sem cláusula de reajuste</div>
+  <p class="risk-txt" id="risk-txt">—</p>
+  <div class="risk-hint" id="risk-hint">—</div>
+</div>
+
+<!-- TABLE -->
+
+<div class="box">
+  <div class="box-hdr" id="tbl-hdr">—</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>Mês</th><th>Taxa</th>
+        <th style="text-align:right">Equivalente</th>
+        <th style="text-align:right">vs Hoje</th>
+        <th style="text-align:right">%</th>
+      </tr></thead>
+      <tbody id="tbl-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="fn">BRL: médias mensais x-rates.com (2025) + estimativas 2026 · UYU: estimativas exchange-rates.org · Não constitui aconselhamento financeiro</div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────────────────
+const MONTHS = [
+  {label:"Mai/25",brl:5.668,uyu:41.80,conf:true },
+  {label:"Jun/25",brl:5.551,uyu:40.30,conf:true },
+  {label:"Jul/25",brl:5.527,uyu:40.20,conf:true },
+  {label:"Ago/25",brl:5.451,uyu:40.10,conf:true },
+  {label:"Set/25",brl:5.370,uyu:39.90,conf:true },
+  {label:"Out/25",brl:5.392,uyu:39.50,conf:true },
+  {label:"Nov/25",brl:5.344,uyu:38.80,conf:true },
+  {label:"Dez/25",brl:5.461,uyu:39.10,conf:true },
+  {label:"Jan/26",brl:5.38, uyu:38.00,conf:false},
+  {label:"Fev/26",brl:5.20, uyu:38.50,conf:false},
+  {label:"Mar/26",brl:5.31, uyu:39.50,conf:false},
+  {label:"Abr/26",brl:5.10, uyu:40.80,conf:false},
+  {label:"Mai/26",brl:4.93, uyu:39.87,conf:false},
+];
+const CURRENT = MONTHS[MONTHS.length - 1];
+let mode = "BRL";
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function fmt(n, d=2) {
+  return n.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
+}
+function fmtC(n, m) {
+  return (m==="BRL"?"R$ ":m==="UYU"?"$U ":"$") + fmt(n);
+}
+function getSalary() {
+  return Math.max(1, Number(document.getElementById("salary").value) || 1000);
+}
+
+// ── Brazil taxes ──────────────────────────────────────────────────────
+const INSS_BR = [
+  {from:0,      to:1518.00, rate:0.075},
+  {from:1518.00,to:2793.88, rate:0.09 },
+  {from:2793.88,to:4190.83, rate:0.12 },
+  {from:4190.83,to:8157.41, rate:0.14 },
+];
+const INSS_CAP = 908.86;
+const DSM      = 607.20; // desconto simplificado mensal
+const IRPF_BR  = [
+  {from:0,      to:2428.80, rate:0,     ded:0     },
+  {from:2428.80,to:2826.65, rate:0.075, ded:182.16},
+  {from:2826.65,to:3751.05, rate:0.15,  ded:394.16},
+  {from:3751.05,to:4664.68, rate:0.225, ded:675.49},
+  {from:4664.68,to:Infinity,rate:0.275, ded:908.73},
+];
+
+function calcINSS(g) {
+  let t = 0;
+  for (const b of INSS_BR) {
+    if (g <= b.from) break;
+    t += (Math.min(g, b.to) - b.from) * b.rate;
+  }
+  return Math.min(t, INSS_CAP);
+}
+
+function calcBR(gross) {
+  const inss = calcINSS(gross);
+  const base = Math.max(0, gross - inss - DSM);
+  let bracket = IRPF_BR[0];
+  for (const b of IRPF_BR) { if (base > b.from) bracket = b; }
+  const irBruto = Math.max(0, base * bracket.rate - bracket.ded);
+  const redutor = Math.max(0, Math.min(irBruto, 978.62 - 0.133145 * gross));
+  const ir      = Math.max(0, irBruto - redutor);
+  return { inss, base, irBruto, redutor, ir, net: gross - inss - ir, bracket };
+}
+
+function renderBR(gross, rate) {
+  const t = calcBR(gross);
+  document.getElementById("tb-gross").textContent = "R$ " + fmt(gross);
+  document.getElementById("tb-inss").textContent  = "- R$ " + fmt(t.inss);
+  document.getElementById("tb-ir").textContent    = t.redutor > 0
+    ? `- R$ ${fmt(t.ir)} (redutor -R$ ${fmt(t.redutor)})`
+    : `- R$ ${fmt(t.ir)}`;
+  document.getElementById("tb-net").textContent   = "R$ " + fmt(t.net);
+  document.getElementById("tb-usd").textContent   = "≈ USD " + fmt(t.net / rate);
+  document.getElementById("brl-rows").innerHTML   = IRPF_BR.map(b => {
+    if (t.base <= b.from) return "";
+    const tax   = (Math.min(t.base, b.to) - b.from) * b.rate;
+    const isTop = t.base > b.from && t.base <= b.to;
+    return `<tr class="${isTop?"hl":""}">
+      <td>R$ ${fmt(b.from,0)} → ${b.to===Infinity?"∞":"R$ "+fmt(b.to,0)}</td>
+      <td>${(b.rate*100).toFixed(1)}%${isTop?" ←":""}</td>
+      <td>${tax>0?"R$ "+fmt(tax):"—"}</td></tr>`;
+  }).join("");
+}
+
+// ── Uruguay taxes ─────────────────────────────────────────────────────
+const IRPF_UY = [
+  {from:0,      to:48048,   rate:0   },
+  {from:48048,  to:68640,   rate:0.10},
+  {from:68640,  to:102960,  rate:0.15},
+  {from:102960, to:205920,  rate:0.24},
+  {from:205920, to:343200,  rate:0.25},
+  {from:343200, to:514800,  rate:0.27},
+  {from:514800, to:789360,  rate:0.31},
+  {from:789360, to:Infinity,rate:0.36},
+];
+
+function calcUY(gross) {
+  const jub    = gross * 0.15;
+  const fonasa = gross * 0.03;
+  const frl    = gross * 0.001;
+  const bps    = jub + fonasa + frl;
+  let taxIncome = 0;
+  for (const b of IRPF_UY) {
+    if (gross <= b.from) break;
+    taxIncome += (Math.min(gross, b.to) - b.from) * b.rate;
+  }
+  const creditRate = gross <= 102960 ? 0.14 : 0.08;
+  const ir = Math.max(0, taxIncome - bps * creditRate);
+  return { jub, fonasa, frl, bps, ir, net: gross - bps - ir };
+}
+
+function renderUY(gross, rate) {
+  const t = calcUY(gross);
+  document.getElementById("tu-gross").textContent  = "$U " + fmt(gross);
+  document.getElementById("tu-jub").textContent    = "- $U " + fmt(t.jub);
+  document.getElementById("tu-fonasa").textContent = "- $U " + fmt(t.fonasa);
+  document.getElementById("tu-frl").textContent    = "- $U " + fmt(t.frl);
+  document.getElementById("tu-irpf").textContent   = "- $U " + fmt(t.ir);
+  document.getElementById("tu-net").textContent    = "$U " + fmt(t.net);
+  document.getElementById("tu-usd").textContent    = "≈ USD " + fmt(t.net / rate);
+  document.getElementById("uyu-rows").innerHTML    = IRPF_UY.map(b => {
+    if (gross <= b.from) return "";
+    const tax   = (Math.min(gross, b.to) - b.from) * b.rate;
+    const isTop = gross > b.from && gross <= b.to;
+    return `<tr class="${isTop?"hl":""}">
+      <td>$U ${fmt(b.from,0)} → ${b.to===Infinity?"∞":"$U "+fmt(b.to,0)}</td>
+      <td>${(b.rate*100).toFixed(0)}%${isTop?" ←":""}</td>
+      <td>${tax>0?"$U "+fmt(tax):"—"}</td></tr>`;
+  }).join("");
+}
+
+// ── Mode toggle ───────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById("btn-brl").className = "tbtn" + (m==="BRL"?" on":"");
+  document.getElementById("btn-uyu").className = "tbtn" + (m==="UYU"?" on":"");
+  render();
+}
+
+// ── Main render ───────────────────────────────────────────────────────
+function render() {
+  const salary = getSalary();
+  const key    = mode === "BRL" ? "brl" : "uyu";
+  const cur    = CURRENT[key];
+  const locked = salary * cur;
+  const rates  = MONTHS.map(m => m[key]);
+  const maxR   = Math.max(...rates);
+  const minR   = Math.min(...rates);
+  const maxM   = MONTHS.find(m => m[key] === maxR);
+  const minM   = MONTHS.find(m => m[key] === minR);
+  const avg    = rates.reduce((a,b)=>a+b,0) / rates.length;
+  const label  = mode === "BRL" ? "Real Brasileiro" : "Peso Uruguaio";
+
+  // Cards
+  document.getElementById("cards").innerHTML = [
+    {lbl:"Hoje (Mai/26)",          val:fmtC(salary*cur, mode),        sub:`1 USD = ${fmt(cur)} ${mode}`,  accent:"#4fd1c5",bg:"rgba(79,209,197,0.08)"},
+    {lbl:`Pior — ${maxM.label}`,   val:fmtC(salary*maxR,mode),        sub:`1 USD = ${fmt(maxR)} ${mode}`, accent:"#f6993f",bg:"rgba(246,153,63,0.08)"},
+    {lbl:`Melhor — ${minM.label}`, val:fmtC(salary*minR,mode),        sub:`1 USD = ${fmt(minR)} ${mode}`, accent:"#fc8181",bg:"rgba(252,129,129,0.08)"},
+    {lbl:"Amplitude de risco",     val:fmtC(salary*(maxR-minR),mode), sub:"pior → melhor",                accent:"#b794f4",bg:"rgba(183,148,244,0.08)"},
+  ].map(c => `<div class="card" style="background:${c.bg};border:1px solid ${c.accent}33">
+    <div class="card-lbl" style="color:${c.accent}">${c.lbl}</div>
+    <div class="card-val">${c.val}</div>
+    <div class="card-sub">${c.sub}</div></div>`).join("");
+
+  // Tax panels
+  document.getElementById("tax-brl").style.display = mode==="BRL" ? "block" : "none";
+  document.getElementById("tax-uyu").style.display = mode==="UYU" ? "block" : "none";
+  if (mode === "BRL") renderBR(salary * cur, cur);
+  else                renderUY(salary * cur, cur);
+
+  // Chart
+  document.getElementById("chart-hdr").textContent = `USD ${fmt(salary,0)} em ${label}`;
+  drawChart(salary, key, locked);
+
+  // Risk
+  const lost = locked / maxR;
+  document.getElementById("risk-txt").innerHTML =
+    `Se travarem o salário em <strong style="color:#fff">${fmtC(locked,mode)}</strong> hoje (taxa ${fmt(cur)}), e o dólar voltar ao pico de <strong style="color:#f6993f">${fmt(maxR)}</strong> (${maxM.label}), você receberia o equivalente a <strong style="color:#fc8181">USD ${fmt(lost,0)}</strong> — perda de <strong style="color:#fc8181">${fmt((lost/salary-1)*100,1)}%</strong>.`;
+  document.getElementById("risk-hint").innerHTML =
+    `💡 Negocie revisão anual indexada ao câmbio, ou piso baseado na média dos 13 meses (≈ ${fmtC(avg*salary,mode)}).`;
+
+  // Table
+  document.getElementById("tbl-hdr").textContent = `Histórico Mensal · USD ${fmt(salary,0)} em ${mode}`;
+  document.getElementById("tbl-body").innerHTML  = [...MONTHS].reverse().map(m => {
+    const r = m[key], amt = salary*r, diff = amt-locked, pct = (r-cur)/cur*100;
+    const today = m.label === "Mai/26";
+    const dc = diff>0?"#68d391":diff<0?"#fc8181":"#64748b";
+    const pc = pct >0?"#68d391":pct <0?"#fc8181":"#64748b";
+    return `<tr>
+      <td style="color:${today?"#4fd1c5":"#e2e8f0"};font-weight:${today?600:400}">${m.label}${today?' <span style="font-size:10px">← hoje</span>':""}</td>
+      <td style="color:#94a3b8">${fmt(r)}${!m.conf?'<span class="tag-est">~est</span>':""}</td>
+      <td style="text-align:right">${fmtC(amt,mode)}</td>
+      <td style="text-align:right;color:${dc}">${today?"—":(diff>0?"+":"")+fmtC(diff,mode)}</td>
+      <td style="text-align:right;font-size:11px;color:${pc}">${today?"":(pct>0?"+":"")+fmt(pct,1)+"%"}</td></tr>`;
+  }).join("");
+}
+
+// ── SVG Chart ─────────────────────────────────────────────────────────
+function drawChart(salary, key, locked) {
+  const svg = document.getElementById("chart");
+  const W   = svg.parentElement.clientWidth || 340;
+  const H   = 190;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("height", H);
+  const P  = {top:8, right:18, bottom:28, left:58};
+  const cw = W-P.left-P.right, ch = H-P.top-P.bottom;
+  const vals = MONTHS.map(m => salary * m[key]);
+  const lo   = Math.min(...vals)*0.995, hi = Math.max(...vals)*1.005;
+  const xs   = i => P.left + (i/(MONTHS.length-1))*cw;
+  const ys   = v => P.top  + ch - ((v-lo)/(hi-lo))*ch;
+  let h = "";
+  for (let i=0; i<=4; i++) {
+    const v=lo+(hi-lo)*(i/4), y=ys(v);
+    h += `<line x1="${P.left}" y1="${y}" x2="${W-P.right}" y2="${y}" stroke="#1e2435" stroke-width="1"/>`;
+    h += `<text x="${P.left-5}" y="${y+4}" text-anchor="end" font-size="9" font-family="IBM Plex Mono,monospace" fill="#64748b">${fmt(v,0)}</text>`;
+  }
+  const ry = ys(locked);
+  h += `<line x1="${P.left}" y1="${ry}" x2="${W-P.right}" y2="${ry}" stroke="#4fd1c5" stroke-width="1" stroke-dasharray="4 4" opacity="0.5"/>`;
+  let path = `M${xs(0)},${ys(vals[0])}`;
+  for (let i=1; i<MONTHS.length; i++) path += ` L${xs(i)},${ys(vals[i])}`;
+  h += `<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4fd1c5" stop-opacity="0.12"/><stop offset="100%" stop-color="#4fd1c5" stop-opacity="0"/></linearGradient></defs>`;
+  h += `<path d="${path} L${xs(MONTHS.length-1)},${H-P.bottom} L${xs(0)},${H-P.bottom} Z" fill="url(#g)"/>`;
+  h += `<path d="${path}" fill="none" stroke="#4fd1c5" stroke-width="2" stroke-linejoin="round"/>`;
+  MONTHS.forEach((m, i) => {
+    const x=xs(i), y=ys(vals[i]);
+    h += `<circle cx="${x}" cy="${y}" r="3" fill="${m.conf?"#4fd1c5":"#94a3b8"}" stroke="#0d0f14" stroke-width="1.5"/>`;
+    if (i%2===0 || i===MONTHS.length-1)
+      h += `<text x="${x}" y="${H-P.bottom+13}" text-anchor="middle" font-size="9" font-family="IBM Plex Mono,monospace" fill="#64748b">${m.label}</text>`;
+  });
+  svg.innerHTML = h;
+}
+
+document.getElementById("salary").addEventListener("input", render);
+window.addEventListener("resize", render);
+render();
+</script>
+
+</body>
+</html>

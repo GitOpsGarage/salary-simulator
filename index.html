@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Simulador Salarial USD</title>
+<title>Simulador Salarial · USD / BRL / UYU</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,6 +28,7 @@ input[type=number] {
 input[type=number]:focus { border-color: #4fd1c5; }
 .toggle-group { display: flex; }
 .tbtn { padding: 9px 20px; font-family: inherit; font-size: 13px; font-weight: 600; border: 1px solid #2d3142; background: #1a1d26; color: #94a3b8; cursor: pointer; transition: background .15s, color .15s; }
+.toggle-group .tbtn + .tbtn { border-left: none; }
 .tbtn:first-child { border-radius: 6px 0 0 6px; }
 .tbtn:last-child  { border-radius: 0 6px 6px 0; }
 .tbtn.on { background: #4fd1c5; color: #0d0f14; border-color: #4fd1c5; }
@@ -68,18 +69,19 @@ tbody td:last-child { text-align: right; color: #e2e8f0; }
 <body>
 
 <div class="eyebrow">Proposta Salarial · Análise Cambial</div>
-<h1>USD → Moeda Local</h1>
-<p class="subtitle">Impacto cambial + impostos nos últimos 13 meses.</p>
+<h1>Simulador Salarial</h1>
+<p class="subtitle">Impostos + impacto cambial nos últimos 13 meses. <strong style="color:#4fd1c5">USD</strong> → PJ Brasil · <strong style="color:#94a3b8">BRL</strong> → CLT Brasil · <strong style="color:#94a3b8">UYU</strong> → Uruguai.</p>
 
 <div class="controls">
   <div style="flex:1 1 160px">
-    <div class="ctrl-lbl">Salário em USD</div>
-    <input type="number" id="salary" value="1000" min="100" step="100">
+    <div class="ctrl-lbl" id="salary-lbl">Salário em USD</div>
+    <input type="number" id="salary" value="1000" min="1" step="100">
   </div>
   <div>
     <div class="ctrl-lbl">Moeda</div>
     <div class="toggle-group">
-      <button class="tbtn on" id="btn-brl" onclick="setMode('BRL')">BRL</button>
+      <button class="tbtn on" id="btn-usd" onclick="setMode('USD')">USD</button>
+      <button class="tbtn"    id="btn-brl" onclick="setMode('BRL')">BRL</button>
       <button class="tbtn"    id="btn-uyu" onclick="setMode('UYU')">UYU</button>
     </div>
   </div>
@@ -87,9 +89,29 @@ tbody td:last-child { text-align: right; color: #e2e8f0; }
 
 <div class="cards" id="cards"></div>
 
+<!-- TAX USD (PJ) -->
+
+<div id="tax-usd">
+  <div class="eyebrow" style="margin-bottom:10px">Estimativa de Impostos · Brasil PJ 2026</div>
+  <div class="box">
+    <div class="box-hdr">Simples Nacional · Anexo V · serviços tech · sem pro-labore obrigatório</div>
+    <div class="tx-row"><span class="tx-lbl">Faturamento em USD</span><span class="tx-val" id="tp-gross-usd">—</span></div>
+    <div class="tx-row"><span class="tx-lbl">Equivalente em BRL (taxa atual)</span><span class="tx-val" id="tp-gross-brl">—</span></div>
+    <div class="tx-row"><span class="tx-lbl" id="tp-das-lbl">DAS — Simples Nacional</span><span class="tx-val" style="color:#fc8181" id="tp-das">—</span></div>
+    <div class="tx-row tx-total"><span class="tx-lbl">💰 Líquido estimado (BRL)</span><span class="tx-val" id="tp-net">—</span></div>
+    <div class="tx-row"><span class="tx-lbl" style="font-size:11px">Equivalente em USD</span><span style="font-size:13px;color:#94a3b8;font-weight:500" id="tp-net-usd">—</span></div>
+  </div>
+  <div class="box">
+    <div class="box-hdr">Faixas Simples Nacional Anexo V (RBT12 = faturamento anual)</div>
+    <table><thead><tr><th>Receita anual</th><th>Alíq. nominal</th><th style="text-align:right">DAS mensal</th></tr></thead>
+    <tbody id="pj-rows"></tbody></table>
+  </div>
+  <div class="hint"><strong>Premissas PJ:</strong> Simples Nacional Anexo V (sem fator-R, sem empregados). RBT12 = faturamento mensal × 12. Alíq. efetiva = (RBT12 × alíq_nom − parcela_ded) / RBT12. Lucros distribuídos isentos de IRPF (legislação 2026). INSS voluntário sobre pro-labore não incluído. Lucro Presumido pode ser vantajoso a partir de ~R$ 30k/mês.</div>
+</div>
+
 <!-- TAX BRL -->
 
-<div id="tax-brl">
+<div id="tax-brl" style="display:none">
   <div class="eyebrow" style="margin-bottom:10px">Estimativa de Impostos · Brasil 2026</div>
   <div class="box">
     <div class="box-hdr">Descontos CLT · sem dependentes · desconto simplificado</div>
@@ -143,7 +165,7 @@ tbody td:last-child { text-align: right; color: #e2e8f0; }
 <!-- RISK -->
 
 <div class="risk-box">
-  <div class="risk-ttl">⚠ Risco sem cláusula de reajuste</div>
+  <div class="risk-ttl" id="risk-ttl">⚠ Risco cambial</div>
   <p class="risk-txt" id="risk-txt">—</p>
   <div class="risk-hint" id="risk-hint">—</div>
 </div>
@@ -155,7 +177,7 @@ tbody td:last-child { text-align: right; color: #e2e8f0; }
   <div style="overflow-x:auto">
     <table>
       <thead><tr>
-        <th>Mês</th><th>Taxa</th>
+        <th>Mês</th><th>Taxa USD</th>
         <th style="text-align:right">Equivalente</th>
         <th style="text-align:right">vs Hoje</th>
         <th style="text-align:right">%</th>
@@ -185,20 +207,56 @@ const MONTHS = [
   {label:"Mai/26",brl:4.93, uyu:39.87,conf:false},
 ];
 const CURRENT = MONTHS[MONTHS.length - 1];
-let mode = "BRL";
+let mode = "USD";
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function fmt(n, d=2) {
   return n.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
 }
-function fmtC(n, m) {
-  return (m==="BRL"?"R$ ":m==="UYU"?"$U ":"$") + fmt(n);
-}
 function getSalary() {
   return Math.max(1, Number(document.getElementById("salary").value) || 1000);
 }
 
-// ── Brazil taxes ──────────────────────────────────────────────────────
+// ── PJ Brazil (Simples Nacional Anexo V) ──────────────────────────────
+const SIMPLES_V = [
+  {from:0,       to:180000,   nom:0.155, ded:0      },
+  {from:180000,  to:360000,   nom:0.18,  ded:4500   },
+  {from:360000,  to:720000,   nom:0.195, ded:9900   },
+  {from:720000,  to:1800000,  nom:0.205, ded:17100  },
+  {from:1800000, to:3600000,  nom:0.23,  ded:62100  },
+  {from:3600000, to:Infinity, nom:0.305, ded:540000 },
+];
+
+function calcPJ(grossBRL) {
+  const rbt12 = grossBRL * 12;
+  let faixa = SIMPLES_V[SIMPLES_V.length - 1];
+  for (const f of SIMPLES_V) { if (rbt12 <= f.to) { faixa = f; break; } }
+  const aliqEf = (rbt12 * faixa.nom - faixa.ded) / rbt12;
+  const das    = grossBRL * aliqEf;
+  return { das, aliqEf, rbt12, faixa, net: grossBRL - das };
+}
+
+function renderPJ(grossUSD, rateBRL) {
+  const grossBRL = grossUSD * rateBRL;
+  const t = calcPJ(grossBRL);
+  document.getElementById("tp-gross-usd").textContent = "USD " + fmt(grossUSD);
+  document.getElementById("tp-gross-brl").textContent = "R$ " + fmt(grossBRL);
+  document.getElementById("tp-das-lbl").textContent   = `DAS — Simples Nacional (${(t.aliqEf*100).toFixed(2)}% ef.)`;
+  document.getElementById("tp-das").textContent       = "- R$ " + fmt(t.das);
+  document.getElementById("tp-net").textContent       = "R$ " + fmt(t.net);
+  document.getElementById("tp-net-usd").textContent   = "≈ USD " + fmt(t.net / rateBRL);
+  document.getElementById("pj-rows").innerHTML = SIMPLES_V.map(f => {
+    const isCurrent = t.rbt12 > f.from && t.rbt12 <= f.to;
+    const fromK = f.from === 0 ? "0" : fmt(f.from/1000, 0)+"k";
+    const toK   = f.to === Infinity ? "∞" : fmt(f.to/1000, 0)+"k";
+    return `<tr class="${isCurrent?"hl":""}">
+      <td>R$ ${fromK} → R$ ${toK}/ano</td>
+      <td>${(f.nom*100).toFixed(1)}%${isCurrent?" ←":""}</td>
+      <td>${isCurrent?"R$ "+fmt(t.das):"—"}</td></tr>`;
+  }).join("");
+}
+
+// ── Brazil CLT taxes ──────────────────────────────────────────────────
 const INSS_BR = [
   {from:0,      to:1518.00, rate:0.075},
   {from:1518.00,to:2793.88, rate:0.09 },
@@ -206,7 +264,7 @@ const INSS_BR = [
   {from:4190.83,to:8157.41, rate:0.14 },
 ];
 const INSS_CAP = 908.86;
-const DSM      = 607.20; // desconto simplificado mensal
+const DSM      = 607.20;
 const IRPF_BR  = [
   {from:0,      to:2428.80, rate:0,     ded:0     },
   {from:2428.80,to:2826.65, rate:0.075, ded:182.16},
@@ -269,7 +327,7 @@ const IRPF_UY = [
 
 function calcUY(gross) {
   const BPC        = 6864;
-  const fonasaRate = gross > 2.5 * BPC ? 0.045 : 0.03; // BPS: 3% até 2,5 BPC, 4,5% acima (solteiro sem filhos)
+  const fonasaRate = gross > 2.5 * BPC ? 0.045 : 0.03;
   const jub        = gross * 0.15;
   const fonasa     = gross * fonasaRate;
   const frl        = gross * 0.001;
@@ -286,15 +344,15 @@ function calcUY(gross) {
 
 function renderUY(gross, rate) {
   const t = calcUY(gross);
-  document.getElementById("tu-gross").textContent     = "$U " + fmt(gross);
-  document.getElementById("tu-jub").textContent       = "- $U " + fmt(t.jub);
+  document.getElementById("tu-gross").textContent      = "$U " + fmt(gross);
+  document.getElementById("tu-jub").textContent        = "- $U " + fmt(t.jub);
   document.getElementById("tu-fonasa-lbl").textContent = `FONASA (${(t.fonasaRate*100).toFixed(1)}%)`;
-  document.getElementById("tu-fonasa").textContent    = "- $U " + fmt(t.fonasa);
-  document.getElementById("tu-frl").textContent    = "- $U " + fmt(t.frl);
-  document.getElementById("tu-irpf").textContent   = "- $U " + fmt(t.ir);
-  document.getElementById("tu-net").textContent    = "$U " + fmt(t.net);
-  document.getElementById("tu-usd").textContent    = "≈ USD " + fmt(t.net / rate);
-  document.getElementById("uyu-rows").innerHTML    = IRPF_UY.map(b => {
+  document.getElementById("tu-fonasa").textContent     = "- $U " + fmt(t.fonasa);
+  document.getElementById("tu-frl").textContent        = "- $U " + fmt(t.frl);
+  document.getElementById("tu-irpf").textContent       = "- $U " + fmt(t.ir);
+  document.getElementById("tu-net").textContent        = "$U " + fmt(t.net);
+  document.getElementById("tu-usd").textContent        = "≈ USD " + fmt(t.net / rate);
+  document.getElementById("uyu-rows").innerHTML = IRPF_UY.map(b => {
     if (gross <= b.from) return "";
     const tax   = (Math.min(gross, b.to) - b.from) * b.rate;
     const isTop = gross > b.from && gross <= b.to;
@@ -307,72 +365,162 @@ function renderUY(gross, rate) {
 
 // ── Mode toggle ───────────────────────────────────────────────────────
 function setMode(m) {
+  const curr = getSalary();
+  const inp  = document.getElementById("salary");
+  if      (mode==="USD" && m==="BRL") { inp.value = Math.round(curr * CURRENT.brl); inp.step = 500;  }
+  else if (mode==="USD" && m==="UYU") { inp.value = Math.round(curr * CURRENT.uyu); inp.step = 1000; }
+  else if (mode==="BRL" && m==="USD") { inp.value = Math.round(curr / CURRENT.brl); inp.step = 100;  }
+  else if (mode==="BRL" && m==="UYU") { inp.value = Math.round(curr / CURRENT.brl * CURRENT.uyu); inp.step = 1000; }
+  else if (mode==="UYU" && m==="USD") { inp.value = Math.round(curr / CURRENT.uyu); inp.step = 100;  }
+  else if (mode==="UYU" && m==="BRL") { inp.value = Math.round(curr / CURRENT.uyu * CURRENT.brl); inp.step = 500;  }
   mode = m;
+  document.getElementById("btn-usd").className = "tbtn" + (m==="USD"?" on":"");
   document.getElementById("btn-brl").className = "tbtn" + (m==="BRL"?" on":"");
   document.getElementById("btn-uyu").className = "tbtn" + (m==="UYU"?" on":"");
+  document.getElementById("salary-lbl").textContent = `Salário em ${m}`;
   render();
 }
 
 // ── Main render ───────────────────────────────────────────────────────
 function render() {
   const salary = getSalary();
-  const key    = mode === "BRL" ? "brl" : "uyu";
-  const cur    = CURRENT[key];
-  const locked = salary * cur;
-  const rates  = MONTHS.map(m => m[key]);
-  const maxR   = Math.max(...rates);
-  const minR   = Math.min(...rates);
-  const maxM   = MONTHS.find(m => m[key] === maxR);
-  const minM   = MONTHS.find(m => m[key] === minR);
-  const avg    = rates.reduce((a,b)=>a+b,0) / rates.length;
-  const label  = mode === "BRL" ? "Real Brasileiro" : "Peso Uruguaio";
-
-  // Cards
-  document.getElementById("cards").innerHTML = [
-    {lbl:"Hoje (Mai/26)",          val:fmtC(salary*cur, mode),        sub:`1 USD = ${fmt(cur)} ${mode}`,  accent:"#4fd1c5",bg:"rgba(79,209,197,0.08)"},
-    {lbl:`Pior — ${maxM.label}`,   val:fmtC(salary*maxR,mode),        sub:`1 USD = ${fmt(maxR)} ${mode}`, accent:"#f6993f",bg:"rgba(246,153,63,0.08)"},
-    {lbl:`Melhor — ${minM.label}`, val:fmtC(salary*minR,mode),        sub:`1 USD = ${fmt(minR)} ${mode}`, accent:"#fc8181",bg:"rgba(252,129,129,0.08)"},
-    {lbl:"Amplitude de risco",     val:fmtC(salary*(maxR-minR),mode), sub:"pior → melhor",                accent:"#b794f4",bg:"rgba(183,148,244,0.08)"},
-  ].map(c => `<div class="card" style="background:${c.bg};border:1px solid ${c.accent}33">
-    <div class="card-lbl" style="color:${c.accent}">${c.lbl}</div>
-    <div class="card-val">${c.val}</div>
-    <div class="card-sub">${c.sub}</div></div>`).join("");
 
   // Tax panels
+  document.getElementById("tax-usd").style.display = mode==="USD" ? "block" : "none";
   document.getElementById("tax-brl").style.display = mode==="BRL" ? "block" : "none";
   document.getElementById("tax-uyu").style.display = mode==="UYU" ? "block" : "none";
-  if (mode === "BRL") renderBR(salary * cur, cur);
-  else                renderUY(salary * cur, cur);
+  if      (mode==="USD") renderPJ(salary, CURRENT.brl);
+  else if (mode==="BRL") renderBR(salary, CURRENT.brl);
+  else                   renderUY(salary, CURRENT.uyu);
+
+  // Chart values and locked reference (all in display currency)
+  // USD mode → display BRL (salary * rate)
+  // BRL/UYU mode → display USD (salary / rate)
+  let chartVals, locked, chartLabel;
+  if (mode==="USD") {
+    chartVals  = MONTHS.map(m => salary * m.brl);
+    locked     = salary * CURRENT.brl;
+    chartLabel = `USD ${fmt(salary,0)} → BRL (13 meses)`;
+  } else if (mode==="BRL") {
+    chartVals  = MONTHS.map(m => salary / m.brl);
+    locked     = salary / CURRENT.brl;
+    chartLabel = `R$ ${fmt(salary,0)} → USD (13 meses)`;
+  } else {
+    chartVals  = MONTHS.map(m => salary / m.uyu);
+    locked     = salary / CURRENT.uyu;
+    chartLabel = `$U ${fmt(salary,0)} → USD (13 meses)`;
+  }
+
+  // Cards
+  if (mode==="USD") {
+    const brlRates = MONTHS.map(m => m.brl);
+    const maxBrl = Math.max(...brlRates), minBrl = Math.min(...brlRates);
+    const maxBrlM = MONTHS.find(m => m.brl===maxBrl), minBrlM = MONTHS.find(m => m.brl===minBrl);
+    document.getElementById("cards").innerHTML = [
+      {lbl:"Hoje (Mai/26) · BRL",         val:"R$ "+fmt(salary*CURRENT.brl), sub:`1 USD = ${fmt(CURRENT.brl)} BRL`, accent:"#4fd1c5",bg:"rgba(79,209,197,0.08)"},
+      {lbl:"Hoje (Mai/26) · UYU",         val:"$U "+fmt(salary*CURRENT.uyu), sub:`1 USD = ${fmt(CURRENT.uyu)} UYU`, accent:"#68d391",bg:"rgba(104,211,145,0.08)"},
+      {lbl:`Melhor BRL — ${maxBrlM.label}`,val:"R$ "+fmt(salary*maxBrl),     sub:`1 USD = ${fmt(maxBrl)} BRL`,      accent:"#f6993f",bg:"rgba(246,153,63,0.08)"},
+      {lbl:`Pior BRL — ${minBrlM.label}`,  val:"R$ "+fmt(salary*minBrl),     sub:`1 USD = ${fmt(minBrl)} BRL`,      accent:"#fc8181",bg:"rgba(252,129,129,0.08)"},
+    ].map(c => card(c)).join("");
+  } else if (mode==="BRL") {
+    const rates = MONTHS.map(m => m.brl);
+    const maxR = Math.max(...rates), minR = Math.min(...rates);
+    const piorM = MONTHS.find(m => m.brl===maxR), melhorM = MONTHS.find(m => m.brl===minR);
+    document.getElementById("cards").innerHTML = [
+      {lbl:"Hoje (Mai/26)",              val:"USD "+fmt(salary/CURRENT.brl), sub:`1 USD = ${fmt(CURRENT.brl)} BRL`, accent:"#4fd1c5",bg:"rgba(79,209,197,0.08)"},
+      {lbl:`Pior — ${piorM.label}`,      val:"USD "+fmt(salary/maxR),        sub:`1 USD = ${fmt(maxR)} BRL`,        accent:"#fc8181",bg:"rgba(252,129,129,0.08)"},
+      {lbl:`Melhor — ${melhorM.label}`,  val:"USD "+fmt(salary/minR),        sub:`1 USD = ${fmt(minR)} BRL`,        accent:"#f6993f",bg:"rgba(246,153,63,0.08)"},
+      {lbl:"Amplitude de risco",         val:"USD "+fmt(salary/minR-salary/maxR), sub:"melhor → pior",              accent:"#b794f4",bg:"rgba(183,148,244,0.08)"},
+    ].map(c => card(c)).join("");
+  } else {
+    const rates = MONTHS.map(m => m.uyu);
+    const maxR = Math.max(...rates), minR = Math.min(...rates);
+    const piorM = MONTHS.find(m => m.uyu===maxR), melhorM = MONTHS.find(m => m.uyu===minR);
+    document.getElementById("cards").innerHTML = [
+      {lbl:"Hoje (Mai/26)",              val:"USD "+fmt(salary/CURRENT.uyu), sub:`1 USD = ${fmt(CURRENT.uyu)} UYU`, accent:"#4fd1c5",bg:"rgba(79,209,197,0.08)"},
+      {lbl:`Pior — ${piorM.label}`,      val:"USD "+fmt(salary/maxR),        sub:`1 USD = ${fmt(maxR)} UYU`,        accent:"#fc8181",bg:"rgba(252,129,129,0.08)"},
+      {lbl:`Melhor — ${melhorM.label}`,  val:"USD "+fmt(salary/minR),        sub:`1 USD = ${fmt(minR)} UYU`,        accent:"#f6993f",bg:"rgba(246,153,63,0.08)"},
+      {lbl:"Amplitude de risco",         val:"USD "+fmt(salary/minR-salary/maxR), sub:"melhor → pior",              accent:"#b794f4",bg:"rgba(183,148,244,0.08)"},
+    ].map(c => card(c)).join("");
+  }
 
   // Chart
-  document.getElementById("chart-hdr").textContent = `USD ${fmt(salary,0)} em ${label}`;
-  drawChart(salary, key, locked);
+  document.getElementById("chart-hdr").textContent = chartLabel;
+  drawChart(chartVals, locked);
 
-  // Risk
-  const lost = locked / maxR;
-  document.getElementById("risk-txt").innerHTML =
-    `Se travarem o salário em <strong style="color:#fff">${fmtC(locked,mode)}</strong> hoje (taxa ${fmt(cur)}), e o dólar voltar ao pico de <strong style="color:#f6993f">${fmt(maxR)}</strong> (${maxM.label}), você receberia o equivalente a <strong style="color:#fc8181">USD ${fmt(lost,0)}</strong> — perda de <strong style="color:#fc8181">${fmt((lost/salary-1)*100,1)}%</strong>.`;
-  document.getElementById("risk-hint").innerHTML =
-    `💡 Negocie revisão anual indexada ao câmbio, ou piso baseado na média dos 13 meses (≈ ${fmtC(avg*salary,mode)}).`;
+  // Risk box
+  if (mode==="USD") {
+    const brlRates = MONTHS.map(m => m.brl);
+    const minBrl = Math.min(...brlRates);
+    const minBrlM = MONTHS.find(m => m.brl===minBrl);
+    const avg = brlRates.reduce((a,b)=>a+b,0)/brlRates.length;
+    const worstBRL = salary * minBrl;
+    document.getElementById("risk-ttl").textContent = "⚠ Risco cambial · USD → BRL";
+    document.getElementById("risk-txt").innerHTML =
+      `Se o câmbio cair ao mínimo histórico de <strong style="color:#f6993f">${fmt(minBrl)}</strong> BRL/USD (${minBrlM.label}), seu salário de <strong style="color:#fff">USD ${fmt(salary,0)}</strong> valerá apenas <strong style="color:#fc8181">R$ ${fmt(worstBRL)}</strong> — queda de <strong style="color:#fc8181">${fmt((worstBRL/locked-1)*100,1)}%</strong> vs hoje.`;
+    document.getElementById("risk-hint").innerHTML =
+      `💡 Média 13 meses: 1 USD = ${fmt(avg)} BRL → R$ ${fmt(salary*avg)}. Negocie cláusula de reajuste anual indexada ao câmbio.`;
+  } else if (mode==="BRL") {
+    const rates = MONTHS.map(m => m.brl);
+    const maxR = Math.max(...rates);
+    const maxM = MONTHS.find(m => m.brl===maxR);
+    const avg  = rates.reduce((a,b)=>a+b,0)/rates.length;
+    const worstUSD = salary/maxR;
+    document.getElementById("risk-ttl").textContent = "⚠ Risco cambial · BRL → USD";
+    document.getElementById("risk-txt").innerHTML =
+      `Se o dólar voltar ao pico de <strong style="color:#f6993f">${fmt(maxR)}</strong> BRL/USD (${maxM.label}), seus <strong style="color:#fff">R$ ${fmt(salary,0)}</strong> valerão apenas <strong style="color:#fc8181">USD ${fmt(worstUSD)}</strong> — perda de <strong style="color:#fc8181">${fmt((worstUSD/locked-1)*100,1)}%</strong> vs hoje.`;
+    document.getElementById("risk-hint").innerHTML =
+      `💡 Média 13 meses: 1 USD = ${fmt(avg)} BRL → R$ ${fmt(salary,0)} ≈ USD ${fmt(salary/avg)}.`;
+  } else {
+    const rates = MONTHS.map(m => m.uyu);
+    const maxR = Math.max(...rates);
+    const maxM = MONTHS.find(m => m.uyu===maxR);
+    const avg  = rates.reduce((a,b)=>a+b,0)/rates.length;
+    const worstUSD = salary/maxR;
+    document.getElementById("risk-ttl").textContent = "⚠ Risco cambial · UYU → USD";
+    document.getElementById("risk-txt").innerHTML =
+      `Se o dólar voltar ao pico de <strong style="color:#f6993f">${fmt(maxR)}</strong> UYU/USD (${maxM.label}), seus <strong style="color:#fff">$U ${fmt(salary,0)}</strong> valerão apenas <strong style="color:#fc8181">USD ${fmt(worstUSD)}</strong> — perda de <strong style="color:#fc8181">${fmt((worstUSD/locked-1)*100,1)}%</strong> vs hoje.`;
+    document.getElementById("risk-hint").innerHTML =
+      `💡 Média 13 meses: 1 USD = ${fmt(avg)} UYU → $U ${fmt(salary,0)} ≈ USD ${fmt(salary/avg)}.`;
+  }
 
   // Table
-  document.getElementById("tbl-hdr").textContent = `Histórico Mensal · USD ${fmt(salary,0)} em ${mode}`;
+  const tblLabel = mode==="USD"
+    ? `Histórico Mensal · USD ${fmt(salary,0)} em BRL`
+    : mode==="BRL"
+    ? `Histórico Mensal · R$ ${fmt(salary,0)} em USD`
+    : `Histórico Mensal · $U ${fmt(salary,0)} em USD`;
+  document.getElementById("tbl-hdr").textContent = tblLabel;
   document.getElementById("tbl-body").innerHTML  = [...MONTHS].reverse().map(m => {
-    const r = m[key], amt = salary*r, diff = amt-locked, pct = (r-cur)/cur*100;
+    let rate, amt;
+    if      (mode==="USD") { rate = m.brl; amt = salary * rate; }
+    else if (mode==="BRL") { rate = m.brl; amt = salary / rate; }
+    else                   { rate = m.uyu; amt = salary / rate; }
+    const diff  = amt - locked;
+    const pct   = (amt/locked - 1) * 100;
     const today = m.label === "Mai/26";
-    const dc = diff>0?"#68d391":diff<0?"#fc8181":"#64748b";
-    const pc = pct >0?"#68d391":pct <0?"#fc8181":"#64748b";
+    const dc    = diff>0?"#68d391":diff<0?"#fc8181":"#64748b";
+    const pc    = pct >0?"#68d391":pct <0?"#fc8181":"#64748b";
+    const amtS  = mode==="USD" ? "R$ "+fmt(amt) : "USD "+fmt(amt);
+    const difS  = today ? "—" : (diff>=0?"+":"-")+(mode==="USD" ? "R$ "+fmt(Math.abs(diff)) : "USD "+fmt(Math.abs(diff)));
     return `<tr>
       <td style="color:${today?"#4fd1c5":"#e2e8f0"};font-weight:${today?600:400}">${m.label}${today?' <span style="font-size:10px">← hoje</span>':""}</td>
-      <td style="color:#94a3b8">${fmt(r)}${!m.conf?'<span class="tag-est">~est</span>':""}</td>
-      <td style="text-align:right">${fmtC(amt,mode)}</td>
-      <td style="text-align:right;color:${dc}">${today?"—":(diff>0?"+":"")+fmtC(diff,mode)}</td>
+      <td style="color:#94a3b8">${fmt(rate)}${!m.conf?'<span class="tag-est">~est</span>':""}</td>
+      <td style="text-align:right">${amtS}</td>
+      <td style="text-align:right;color:${dc}">${difS}</td>
       <td style="text-align:right;font-size:11px;color:${pc}">${today?"":(pct>0?"+":"")+fmt(pct,1)+"%"}</td></tr>`;
   }).join("");
 }
 
+function card(c) {
+  return `<div class="card" style="background:${c.bg};border:1px solid ${c.accent}33">
+    <div class="card-lbl" style="color:${c.accent}">${c.lbl}</div>
+    <div class="card-val">${c.val}</div>
+    <div class="card-sub">${c.sub}</div></div>`;
+}
+
 // ── SVG Chart ─────────────────────────────────────────────────────────
-function drawChart(salary, key, locked) {
+function drawChart(vals, locked) {
   const svg = document.getElementById("chart");
   const W   = svg.parentElement.clientWidth || 340;
   const H   = 190;
@@ -380,10 +528,9 @@ function drawChart(salary, key, locked) {
   svg.setAttribute("height", H);
   const P  = {top:8, right:18, bottom:28, left:58};
   const cw = W-P.left-P.right, ch = H-P.top-P.bottom;
-  const vals = MONTHS.map(m => salary * m[key]);
-  const lo   = Math.min(...vals)*0.995, hi = Math.max(...vals)*1.005;
-  const xs   = i => P.left + (i/(MONTHS.length-1))*cw;
-  const ys   = v => P.top  + ch - ((v-lo)/(hi-lo))*ch;
+  const lo = Math.min(...vals)*0.995, hi = Math.max(...vals)*1.005;
+  const xs = i => P.left + (i/(MONTHS.length-1))*cw;
+  const ys = v => P.top  + ch - ((v-lo)/(hi-lo))*ch;
   let h = "";
   for (let i=0; i<=4; i++) {
     const v=lo+(hi-lo)*(i/4), y=ys(v);

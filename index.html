@@ -21,11 +21,20 @@ h1 { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 6px; }
 .controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 24px; }
 .ctrl-lbl { font-size: 10px; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
 input[type=number] {
-  background: #1a1d26; border: 1px solid #2d3142; color: #e2e8f0;
-  border-radius: 6px; padding: 9px 13px; font-family: inherit;
+  background: #1a1d26; border: 1px solid #2d3142; border-left: none; color: #e2e8f0;
+  border-radius: 0 6px 6px 0; padding: 9px 13px; font-family: inherit;
   font-size: 17px; width: 100%; outline: none;
 }
-input[type=number]:focus { border-color: #4fd1c5; }
+input[type=number]::placeholder { color: #3a4258; }
+.input-wrap { display: flex; align-items: stretch; }
+.currency-pfx {
+  background: #13161f; border: 1px solid #2d3142; border-right: none;
+  border-radius: 6px 0 0 6px; padding: 9px 12px;
+  font-size: 13px; font-weight: 700; color: #4fd1c5;
+  white-space: nowrap; display: flex; align-items: center; user-select: none;
+}
+.input-wrap:focus-within .currency-pfx,
+.input-wrap:focus-within input[type=number] { border-color: #4fd1c5; }
 .toggle-group { display: flex; }
 .tbtn { padding: 9px 20px; font-family: inherit; font-size: 13px; font-weight: 600; border: 1px solid #2d3142; background: #1a1d26; color: #94a3b8; cursor: pointer; transition: background .15s, color .15s; }
 .toggle-group .tbtn + .tbtn { border-left: none; }
@@ -74,8 +83,11 @@ tbody td:last-child { text-align: right; color: #e2e8f0; }
 
 <div class="controls">
   <div style="flex:1 1 160px">
-    <div class="ctrl-lbl" id="salary-lbl">Salário em USD</div>
-    <input type="number" id="salary" value="1000" min="1" step="100">
+    <div class="ctrl-lbl" id="salary-lbl">Salário</div>
+    <div class="input-wrap">
+      <span class="currency-pfx" id="currency-pfx">USD</span>
+      <input type="number" id="salary" min="1" step="100" placeholder="ex: 1000">
+    </div>
   </div>
   <div>
     <div class="ctrl-lbl">Moeda</div>
@@ -214,7 +226,7 @@ function fmt(n, d=2) {
   return n.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
 }
 function getSalary() {
-  return Math.max(1, Number(document.getElementById("salary").value) || 1000);
+  return Math.max(0, Number(document.getElementById("salary").value) || 0);
 }
 
 // ── PJ Brazil (Simples Nacional Anexo V) ──────────────────────────────
@@ -364,20 +376,28 @@ function renderUY(gross, rate) {
 }
 
 // ── Mode toggle ───────────────────────────────────────────────────────
+const PLACEHOLDERS = { USD: "ex: 1000", BRL: "ex: 5000", UYU: "ex: 40000" };
+
 function setMode(m) {
   const curr = getSalary();
   const inp  = document.getElementById("salary");
-  if      (mode==="USD" && m==="BRL") { inp.value = Math.round(curr * CURRENT.brl); inp.step = 500;  }
-  else if (mode==="USD" && m==="UYU") { inp.value = Math.round(curr * CURRENT.uyu); inp.step = 1000; }
-  else if (mode==="BRL" && m==="USD") { inp.value = Math.round(curr / CURRENT.brl); inp.step = 100;  }
-  else if (mode==="BRL" && m==="UYU") { inp.value = Math.round(curr / CURRENT.brl * CURRENT.uyu); inp.step = 1000; }
-  else if (mode==="UYU" && m==="USD") { inp.value = Math.round(curr / CURRENT.uyu); inp.step = 100;  }
-  else if (mode==="UYU" && m==="BRL") { inp.value = Math.round(curr / CURRENT.uyu * CURRENT.brl); inp.step = 500;  }
+  if (curr > 0) {
+    if      (mode==="USD" && m==="BRL") inp.value = Math.round(curr * CURRENT.brl);
+    else if (mode==="USD" && m==="UYU") inp.value = Math.round(curr * CURRENT.uyu);
+    else if (mode==="BRL" && m==="USD") inp.value = Math.round(curr / CURRENT.brl);
+    else if (mode==="BRL" && m==="UYU") inp.value = Math.round(curr / CURRENT.brl * CURRENT.uyu);
+    else if (mode==="UYU" && m==="USD") inp.value = Math.round(curr / CURRENT.uyu);
+    else if (mode==="UYU" && m==="BRL") inp.value = Math.round(curr / CURRENT.uyu * CURRENT.brl);
+  }
+  if      (m==="USD") inp.step = 100;
+  else if (m==="BRL") inp.step = 500;
+  else                inp.step = 1000;
   mode = m;
   document.getElementById("btn-usd").className = "tbtn" + (m==="USD"?" on":"");
   document.getElementById("btn-brl").className = "tbtn" + (m==="BRL"?" on":"");
   document.getElementById("btn-uyu").className = "tbtn" + (m==="UYU"?" on":"");
-  document.getElementById("salary-lbl").textContent = `Salário em ${m}`;
+  document.getElementById("currency-pfx").textContent = m;
+  inp.placeholder = PLACEHOLDERS[m];
   render();
 }
 
@@ -389,6 +409,7 @@ function render() {
   document.getElementById("tax-usd").style.display = mode==="USD" ? "block" : "none";
   document.getElementById("tax-brl").style.display = mode==="BRL" ? "block" : "none";
   document.getElementById("tax-uyu").style.display = mode==="UYU" ? "block" : "none";
+  if (!salary) return;
   if      (mode==="USD") renderPJ(salary, CURRENT.brl);
   else if (mode==="BRL") renderBR(salary, CURRENT.brl);
   else                   renderUY(salary, CURRENT.uyu);
